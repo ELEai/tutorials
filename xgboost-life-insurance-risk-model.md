@@ -68,6 +68,13 @@ __API Download__
  6. Unzip the train.csv.zip file: `unzip train.csv.zip`
  7. Close the terminal and return to the notebook. 
  
+ Once you are back in the notebook, upload the train.csv file into a pandas DataFrame and inspect the first few rows.
+ ```
+ df = pd.read_csv('train.csv')
+ df.head()
+ ```
+ ### Transform and Format Data
+ Now we are going to greate an AWS Lambda function to transform the data. 
 
 
 
