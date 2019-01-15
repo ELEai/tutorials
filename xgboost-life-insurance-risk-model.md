@@ -17,7 +17,7 @@ In this tutorial we will revisit the Kaggle competition [Prudential LIfe Insuran
 ### Configure the Notebook
 1. Name the notebook “xgboost-demo”
 2. Define the Execution Role and S3 Bucket Locations where we will store our data and model artifacts.
-```
+```python
 import os
 import boto3
 import time
@@ -31,7 +31,7 @@ bucket = 'prudential-xgboost'
 prefix = 'demo'  
 ```
 ### Import Additional Libraries
-```
+```python
 import numpy as np
 import pandas as pd
 import pickle                               # For serializing and saving the model
@@ -46,6 +46,11 @@ import sagemaker.amazon.common as smac      # For protobuf data format
 from sklearn import preprocessing           
 from sklearn import metrics 
 from sklearn.model_selection import StratifiedKFold    
+```
+__Set Display Options__
+```python
+pd.set_option('display.max_columns', 128)     # Make sure we can see all of the columns
+pd.set_option('display.max_rows', 6)         # Keep the output on
 ```
 
 ### Load Data
@@ -69,12 +74,65 @@ __API Download__
  7. Close the terminal and return to the notebook. 
  
  Once you are back in the notebook, upload the train.csv file into a pandas DataFrame and inspect the first few rows.
- ```
+ ```python
  df = pd.read_csv('train.csv')
  df.head()
  ```
+ 
  ### Transform and Format Data
- Now we are going to greate an AWS Lambda function to transform the data. 
+ The data needs to go through a cleaning and transformation process before we can run a model on it. In addition, AWS requires that the response variables are located in the first column and that the CSV has no headers or index. 
+ 1. Format and move the 'Response' column:
+ ```python
+ df['Response'] = df['Response'].astype(int)
+target = df.pop('Response').values
+le = preprocessing.LabelEncoder()
+y = le.fit_transform(target)
+df.insert(0,'Response', y)
+```
+2. Create a data-cleaning function and run the function on the training data. 
+```python
+def format_df(df):
+    # format data
+    df['Product_Info_2_char'] = df.Product_Info_2.str[0]
+    df['Product_Info_2_num'] = df.Product_Info_2.str[1]
+
+    # factorize categorical variables
+    df['Product_Info_2'] = pd.factorize(df['Product_Info_2'])[0]
+    df['Product_Info_2_char'] = pd.factorize(df['Product_Info_2_char'])[0]
+    df['Product_Info_2_num'] = pd.factorize(df['Product_Info_2_num'])[0]
+
+    # feature engineering
+    df['BMI_Age'] = df['BMI'] * df['Ins_Age']
+
+    med_keyword_columns = df.columns[df.columns.str.startswith('Medical_Keyword_')]
+    df['Med_Keywords_Count'] = df[med_keyword_columns].sum(axis=1)
+
+    # encode missing values
+    df.fillna(-1, inplace=True)
+
+    # drop irrevelent attributes
+    df.drop(['Id', 'Medical_History_10','Medical_History_24'], axis=1, inplace=True)
+```
+ ### Split the Data: 80/20 Train-Validation Split
+```python
+train_list = np.random.rand(len(df)) < 0.8    # 80% train / 20% test
+train_data = df[train_list]
+val_data = df[~train_list]
+```
+### Save & Upload to S3
+```python
+train_file = 'formatted_train.csv'
+val_file = 'formatted_val.csv'
+train_data.to_csv(train_file, sep=',', header=False, index=False) # save training data 
+val_data.to_csv(val_file, sep=',', header=False, index=False) # save validation data
+
+boto3.Session().resource('s3').Bucket(bucket).Object(os.path.join(prefix, 'train/', train_file)).upload_file(train_file)
+boto3.Session().resource('s3').Bucket(bucket).Object(os.path.join(prefix, 'val/', val_file)).upload_file(val_file)
+```
+
+
+ 
+    
 
 
 
