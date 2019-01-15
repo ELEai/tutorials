@@ -46,9 +46,8 @@ import sagemaker.amazon.common as smac      # For protobuf data format
 from sklearn import preprocessing           
 from sklearn import metrics 
 from sklearn.model_selection import StratifiedKFold    
-```
-__Set Display Options__
-```python
+
+# Display options
 pd.set_option('display.max_columns', 128)     # Make sure we can see all of the columns
 pd.set_option('display.max_rows', 6)         # Keep the output on
 ```
