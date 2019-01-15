@@ -62,7 +62,7 @@ __API Download__
   - update pip: `pip install --upgrade pip`
   - install kaggle: `pip install kaggle`
   - create a kaggle json file: `touch /home/ec2-user/.kaggle/kaggle.json`
-  - insert your credentials in json format: `echo '{"username":"schmidtbit","key":"d676f7b9bd3f2611834bf8353cb4e5f4"}' >> /home/ec2-user/.kaggle/kaggle.json`
+  - insert your credentials in json format: `echo '{"username":"<your-username>","key":"<our-api-key>"}' >> /home/ec2-user/.kaggle/kaggle.json`
  4. Return to the SageMaker home folder: `cd /home/ec2-user/SageMaker`
  5. Run the Kaggle API Download: `kaggle competitions download -c prudential-life-insurance-assessment` 
  6. Unzip the train.csv.zip file: `unzip train.csv.zip`
