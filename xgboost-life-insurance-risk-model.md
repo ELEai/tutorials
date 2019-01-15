@@ -129,11 +129,233 @@ val_data.to_csv(val_file, sep=',', header=False, index=False) # save validation 
 boto3.Session().resource('s3').Bucket(bucket).Object(os.path.join(prefix, 'train/', train_file)).upload_file(train_file)
 boto3.Session().resource('s3').Bucket(bucket).Object(os.path.join(prefix, 'val/', val_file)).upload_file(val_file)
 ```
+### Train the Model
+1. Specify the Training AMI for SageMaker's XGBoost:
+```python
+from sagemaker.amazon.amazon_estimator import get_image_uri
+container = get_image_uri(boto3.Session().region_name, 'xgboost')
+```
+2. Create the Training Job:
+```python
+job_name = 'prudential-xgboost-demo-' + strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+print("Training job", job_name)
 
+create_training_params = \
+{
+    "AlgorithmSpecification": {
+        "TrainingImage": container,
+        "TrainingInputMode": "File"
+    },
+    "RoleArn": role,
+    "OutputDataConfig": {
+        "S3OutputPath": "s3://{}/{}/model/".format(bucket, prefix),
+    },
+    "ResourceConfig": {
+        "InstanceCount": 1,
+        "InstanceType": "ml.m4.4xlarge",
+        "VolumeSizeInGB": 20
+    },
+    "TrainingJobName": job_name,
+    "HyperParameters": {
+        "num_class":"8",
+        "eta":"0.003",
+        "gamma":"1.2",
+        "max_depth":"6",
+        "min_child_weight":"2",
+        "max_delta_step":"0",
+        "subsample":"0.6",
+        "colsample_bytree":"0.35",
+        "scale_pos_weight":"1.5",
+        "silent":"1",
+        "seed":"1301",
+        "lambda":"1",
+        "alpha":"0.2",
+        "objective": "multi:softmax",
+        "eval_metric": "merror",
+        "num_round": "4269"
+    },
+    "StoppingCondition": {
+        "MaxRuntimeInSeconds": 60 * 60
+    },
+    "InputDataConfig": [
+        {
+            "ChannelName": "train",
+            "DataSource": {
+                "S3DataSource": {
+                    "S3DataType": "S3Prefix",
+                    "S3Uri":  "s3://{}/{}/train/".format(bucket, prefix),
+                    "S3DataDistributionType": "FullyReplicated"
+                }
+            },
+            "ContentType": "csv",
+            "CompressionType": "None"
+        },
+        {
+            "ChannelName": "validation",
+            "DataSource": {
+                "S3DataSource": {
+                    "S3DataType": "S3Prefix",
+                    "S3Uri": "s3://{}/{}/val/".format(bucket, prefix),
+                    "S3DataDistributionType": "FullyReplicated"
+                }
+            },
+            "ContentType": "csv",
+            "CompressionType": "None"
+        }
+    ]
+}
+```
+3. Run the Training Job:
+```python
+%%time
 
- 
+region = boto3.Session().region_name
+sm = boto3.client('sagemaker')
+
+sm.create_training_job(**create_training_params)
+
+status = sm.describe_training_job(TrainingJobName=job_name)['TrainingJobStatus']
+print(status)
+sm.get_waiter('training_job_completed_or_stopped').wait(TrainingJobName=job_name)
+if status == 'Failed':
+    message = sm.describe_training_job(TrainingJobName=job_name)['FailureReason']
+    print('Training failed with the following error: {}'.format(message))
+    raise Exception('Training job failed')  
+```
+
+### Host the Model
+```python
+model_name=job_name + '-mdl'
+hosting_container = {
+    'Image': container,
+    'ModelDataUrl': sm.describe_training_job(TrainingJobName=job_name)['ModelArtifacts']['S3ModelArtifacts'],
+    'Environment': {'this': 'is'}
+}
+
+create_model_response = sm.create_model(
+    ModelName=model_name,
+    ExecutionRoleArn=role,
+    PrimaryContainer=hosting_container)
+
+print(create_model_response['ModelArn'])
+print(sm.describe_training_job(TrainingJobName=job_name)['ModelArtifacts']['S3ModelArtifacts'])
+
+```
+### Configue & Launch Endpoint
+```python
+endpoint_config_name = 'prudential-demo-EndpointConfig-' + strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+print(endpoint_config_name)
+create_endpoint_config_response = sm.create_endpoint_config(
+    EndpointConfigName = endpoint_config_name,
+    ProductionVariants=[{
+        'InstanceType':'ml.m4.xlarge',
+        'InitialInstanceCount':1,
+        'InitialVariantWeight':1,
+        'ModelName':model_name,
+        'VariantName':'AllTraffic'}])
+
+print("Endpoint Config Arn: " + create_endpoint_config_response['EndpointConfigArn'])
+
+%%time
+import time
+
+endpoint_name = 'prudential-demo-endpoint-' + strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+print(endpoint_name)
+create_endpoint_response = sm.create_endpoint(
+    EndpointName=endpoint_name,
+    EndpointConfigName=endpoint_config_name)
+print(create_endpoint_response['EndpointArn'])
+
+resp = sm.describe_endpoint(EndpointName=endpoint_name)
+status = resp['EndpointStatus']
+print("Status: " + status)
+
+while status=='Creating':
+    time.sleep(60)
+    resp = sm.describe_endpoint(EndpointName=endpoint_name)
+    status = resp['EndpointStatus']
+    print("Status: " + status)
+
+print("Arn: " + resp['EndpointArn'])
+print("Status: " + status)
+```
+### Evaluate Model
+1. Create Helper Functions:
+```python
+# Simple function to create a csv from our numpy array
+
+def np2csv(arr):
+    print(arr)
+    print(type(arr))
+    csv = io.BytesIO()
+    np.savetxt(csv, arr, delimiter=',', fmt='%g')
+    return csv.getvalue().decode().rstrip()
+
+# Function to generate prediction through sample data
+
+def do_predict(data, endpoint_name, content_type):
     
+    payload = np2csv(data)
+    print(payload)
+    print(type(payload))
+    response = runtime.invoke_endpoint(EndpointName=endpoint_name, 
+                                   ContentType=content_type, 
+                                   Body=payload)
+    result = response['Body'].read()
+    result = result.decode("utf-8")
+    result = result.split(',')
+    preds = [float((num)) for num in result]
+    return preds
 
+# Function to iterate through a larger data set and generate batch predictions
 
+def batch_predict(data, batch_size, endpoint_name, content_type):
+    items = len(data)
+    arrs = []
+    
+    for offset in range(0, items, batch_size):
+        if offset+batch_size < items:
+            datav = data.iloc[offset:(offset+batch_size),:].as_matrix()
+            results = do_predict(datav, endpoint_name, content_type)
+            arrs.extend(results)
+        else:
+            datav = data.iloc[offset:items,:].as_matrix()
+            arrs.extend(do_predict(datav, endpoint_name, content_type))
+        sys.stdout.write('.')
+    return(arrs)
+```
+2. Read in Data & Generate Predictions
+```python
+data_train = pd.read_csv("formatted_train.csv", sep=',', header=None) 
+data_val = pd.read_csv("formatted_val.csv", sep=',', header=None) 
+
+runtime= boto3.client('runtime.sagemaker')
+
+preds_train_xgb = batch_predict(data_train.iloc[:, 1:], 1000, endpoint_name, 'text/csv')
+preds_val_xgb = batch_predict(data_val.iloc[:, 1:], 1000, endpoint_name, 'text/csv')
+```
+3. Score the Model:
+```python
+train_labels = data_train.iloc[:,0];
+val_labels = data_val.iloc[:,0];
+
+Training_f1 = metrics.f1_score(train_labels, preds_train_xgb, average=None)
+Validation_f1= metrics.f1_score(val_labels, preds_val_xgb, average=None)
+
+print("Average Training F1 Score", np.average(Training_f1))
+print("Average Validation F1 Score", np.average(Validation_f1))
+    
+for risk, tscore, vscore in zip(range(1,9),Training_f1, Validation_f1):
+    ts = np.round(tscore,2)
+    vs = np.round(vscore,2)
+    print(risk, ts , '\t|' , vs)
+```
+### Save Predictions to S3
+```python
+final = pd.concat([val_labels, pd.DataFrame(preds_val_xgb)], axis=1)
+preds_file = "prudential-demo-predictions.csv"
+final.to_csv(preds_file, sep=',', header=False, index=False)
+boto3.Session().resource('s3').Bucket(bucket).Object(os.path.join(prefix, 'preds/', preds_file)).upload_file(preds_file)
+```
 
 
