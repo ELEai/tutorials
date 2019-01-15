@@ -1,8 +1,8 @@
 
 # Life Insurance Risk Model with XGBoost on AWS SageMaker
-In this tutorial we will revisit the Kaggle competition Prudential LIfe Insurance Assessment and re-create  the solution published by Anton Laptiev using AWS SageMaker. 
+In this tutorial we will revisit the Kaggle competition [Prudential LIfe Insurance Assessment](https://www.kaggle.com/c/prudential-life-insurance-assessment) and re-create  the solution published by [Anton Laptiev](https://github.com/AntonUBC/Prudential-Life-Insurance-Assessment) using AWS SageMaker. 
 
-__Launch an AWS SageMaker Jupyter Notebook Instance and create an IAM Role.__
+### Launch an AWS SageMaker Jupyter Notebook Instance and create an IAM Role
 1. Click on “Create Notebook Instance”.
 2. Name the instance “life-insurance-risk” and keep the instance type as “ml.t2.medium”
 3. Create a new IAM role.
@@ -14,7 +14,7 @@ __Launch an AWS SageMaker Jupyter Notebook Instance and create an IAM Role.__
 7. Keep all other settings as default and select “Create notebook instance” .
 8. When it is done launching, open the Jupyter instance and create a ‘conda-python3’ notebook.
 
-__Configure the Notebook.__ 
+### Configure the Notebook
 1. Name the notebook “xgboost-demo”
 2. Define the Execution Role and S3 Bucket Locations where we will store our data and model artifacts.
 ```
@@ -30,7 +30,7 @@ bucket = 'prudential-xgboost'
 # place to upload training files within the bucket
 prefix = 'demo'  
 ```
-3. Import Additional Libraries.
+### Import Additional Libraries
 ```
 import numpy as np
 import pandas as pd
@@ -48,8 +48,8 @@ from sklearn import metrics
 from sklearn.model_selection import StratifiedKFold    
 ```
 
-__Load Data__
-The data provided from the Kaggle Competition has already been split into a train.csv and test.csv files. The train.csv file has labeled attributes wich include a response column. The trest.csv file does not have the response column. For the purposes of training and scoring we will only be working with the train.csv file. You can download the file locally [here](https://www.kaggle.com/c/prudential-life-insurance-assessment/data) and upload it to your Jupyter instance. 
+### Load Data
+The data provided from the Kaggle Competition has already been split into a train.csv and test.csv files. The train.csv file has labeled attributes wich include a response column. The test.csv file does not have the response column. For the purposes of training and scoring we will only be working with the train.csv file. You can download the file locally [here](https://www.kaggle.com/c/prudential-life-insurance-assessment/data) and upload it to your Jupyter instance. Alternativelly, you can use the [Kaggle API](https://www.kaggle.com/docs/api) if you have your credentials. 
 
 * _Local Download_
 1. Go to Jupyter Home.
@@ -59,14 +59,14 @@ The data provided from the Kaggle Competition has already been split into a trai
 1. Go to Jupyter Home
 2. Select 'new' --> 'Terminal'
 3. In the terminal:
- - update pip: `pip install --upgrade pip`
- - install kaggle: `pip install kaggle`
- - create a kaggle json file: `touch /home/ec2-user/.kaggle/kaggle.json`
- - insert your credentials in json format: `echo '{"username":"schmidtbit","key":"d676f7b9bd3f2611834bf8353cb4e5f4"}' >> /home/ec2-user/.kaggle/kaggle.json`
- 4. return to the SageMaker home folder `cd /home/ec2-user/SageMaker`
- 5. Run the Kaggle API Download: `kaggle competitions download -c prudential-life-insurance-assessment` and look at the contents `ls`. 
+  - update pip: `pip install --upgrade pip`
+  - install kaggle: `pip install kaggle`
+  - create a kaggle json file: `touch /home/ec2-user/.kaggle/kaggle.json`
+  - insert your credentials in json format: `echo '{"username":"schmidtbit","key":"d676f7b9bd3f2611834bf8353cb4e5f4"}' >> /home/ec2-user/.kaggle/kaggle.json`
+ 4. Return to the SageMaker home folder: `cd /home/ec2-user/SageMaker`
+ 5. Run the Kaggle API Download: `kaggle competitions download -c prudential-life-insurance-assessment` 
  6. Unzip the train.csv.zip file: `unzip train.csv.zip`
- 7. close the terminal and return to the notebook. 
+ 7. Close the terminal and return to the notebook. 
  
 
 
