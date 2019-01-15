@@ -8,7 +8,7 @@ In this tutorial we will revisit the Kaggle competition [Prudential LIfe Insuran
 3. Create a new IAM role.
 4. Select “None” for the S3 buckets.
 5. Select “Create role”.
-6. Click on the new IAM Role you just created. It will take you to the Role Summary Page in the IAM console. Attach the following policies to this new role. 
+6. Click on the new IAM Role you just created. It will take you to the Role Summary Page in the IAM console. Attach the following policies to the new role you just created:
  - AmazonS3FullAccess
  - AmazonEC2ContainerRegistryFullAccess
 7. Keep all other settings as default and select “Create notebook instance” .
@@ -51,11 +51,11 @@ from sklearn.model_selection import StratifiedKFold
 ### Load Data
 The data provided from the Kaggle Competition has already been split into a train.csv and test.csv files. The train.csv file has labeled attributes wich include a response column. The test.csv file does not have the response column. For the purposes of training and scoring we will only be working with the train.csv file. You can download the file locally [here](https://www.kaggle.com/c/prudential-life-insurance-assessment/data) and upload it to your Jupyter instance. Alternativelly, you can use the [Kaggle API](https://www.kaggle.com/docs/api) if you have your credentials. 
 
-* _Local Download_
+__Local Download__
 1. Go to Jupyter Home.
 2. Select "Upload" and find the train.csv file on your computer. Back in your Jupyter Home confirm the upload and return back to the notebook. 
 
-* _API Download_
+__API Download__
 1. Go to Jupyter Home
 2. Select 'new' --> 'Terminal'
 3. In the terminal:
