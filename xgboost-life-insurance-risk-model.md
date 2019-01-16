@@ -2,6 +2,9 @@
 # Life Insurance Risk Model with XGBoost on AWS SageMaker
 In this tutorial we will revisit the Kaggle competition [Prudential LIfe Insurance Assessment](https://www.kaggle.com/c/prudential-life-insurance-assessment) and re-create  the solution published by [Anton Laptiev](https://github.com/AntonUBC/Prudential-Life-Insurance-Assessment) using AWS SageMaker. 
 
+## Create the Model
+The first step is to develop and train a model and host it in a SageMaker endpoint which we will use to call predictions. 
+
 ### Launch an AWS SageMaker Jupyter Notebook Instance and create an IAM Role
 1. Click on “Create Notebook Instance”.
 2. Name the instance “life-insurance-risk” and keep the instance type as “ml.t2.medium”
@@ -135,6 +138,7 @@ from sagemaker.amazon.amazon_estimator import get_image_uri
 container = get_image_uri(boto3.Session().region_name, 'xgboost')
 ```
 2. Create the Training Job:
+This is where you specify the model output location, resource configuration, and hyperparameters. 
 ```python
 job_name = 'prudential-xgboost-demo-' + strftime("%Y-%m-%d-%H-%M-%S", gmtime())
 print("Training job", job_name)
@@ -356,5 +360,16 @@ preds_file = "prudential-demo-predictions.csv"
 final.to_csv(preds_file, sep=',', header=False, index=False)
 boto3.Session().resource('s3').Bucket(bucket).Object(os.path.join(prefix, 'preds/', preds_file)).upload_file(preds_file)
 ```
+
+# How to Interact with the Model
+There are several ways to interact with a model, and what method you ultimately decide to use depends largely on the industry and application. The model we created in this tutorial is meant to predict a Life Insurance applicant's risk score and would be used to assist in the underwriting process. Consider the following scenarios:
+1. __Web Form Application:__ ([how to make a Chalice Webapp that calls a model Endpoint]()) 
+   * Scenario #1) We can call the model directly after the applicant submits their web-based application. In this scenario we would use an AWS Lambda function to transform the webform into a format that the model can accept. Then we would call the model and add the model's prediction to the applicant's data before it reaches the applicant database. When application is queried by the underwriter, they can see the score the model assigned to that applicant.
+   * Scenario #2) Similar to above, we can also set up a rule where applicants recieving a specific score are routed to the appropriate next step. For example, a high risk applicant may be sent to an underwriter before the applicant is rejected to verify that there was not an error. Low risk applicants can be auto-approved and enrolled immediately, skipping the underwriting process. 
+   * Scenario #3) Another approach would be to immediately alert the applicant of the model's assessment, letting the applicant know if their application has a probability of being rejected. This gives the applicant the opportunity to provide additional information or change the product that they are applying for. 
+1. __Chat Bot:__
+   *  Turn the webform into a chatbot! This gives the applicant the ability to answer questions interactively. A chat bot can easily be integrated into any of the above scenarios. \
+3. __Manual CSV Upload:__
+   * The most basic way to call the model is to use a simple CSV upload. A single applicant, or a batch of applications can receive scores via a CSV output. 
 
 
