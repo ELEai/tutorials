@@ -2,6 +2,9 @@
 # Life Insurance Risk Model with XGBoost on AWS SageMaker
 In this tutorial we will revisit the Kaggle competition [Prudential LIfe Insurance Assessment](https://www.kaggle.com/c/prudential-life-insurance-assessment) and re-create  the solution published by [Anton Laptiev](https://github.com/AntonUBC/Prudential-Life-Insurance-Assessment) using AWS SageMaker. 
 
+## Deployment Architecture
+
+
 ## Create the Model
 The first step is to develop and train a model and host it in a SageMaker endpoint which we will use to call predictions. 
 
